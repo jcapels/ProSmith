@@ -423,7 +423,7 @@ def trainer(gpu, args, device):
 
 
     trials = Trials()
-    best = fmin(fn = train_xgboost_model_all, space = space_gradient_boosting,
+    best = fmin(fn = train_xgboost_model_all_cls, space = space_gradient_boosting,
                 algo = rand.suggest, max_evals = args.num_iter, trials = trials)
 
 
