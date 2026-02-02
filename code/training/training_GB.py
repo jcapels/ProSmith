@@ -393,9 +393,7 @@ def trainer(gpu, args, device):
     #     return(get_performance(pred = bst.predict(dvalid_all_cls), true =val_labels))
 
 
-    # trials = Trials()
-    # best = fmin(fn = train_xgboost_model_all, space = space_gradient_boosting,
-    #             algo = rand.suggest, max_evals = args.num_iter, trials = trials)
+    
 
     #export to pickle
 
