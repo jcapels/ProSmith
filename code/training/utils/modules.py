@@ -147,8 +147,10 @@ class MM_TN(nn.Module):
         get_repr=False
     ):
         batch_size, _, _ = smiles_emb.shape
-        s_embedding = self.s_pooler(smiles_emb)
-        p_embedding = self.p_pooler(protein_emb)
+        s_embedding = self.s_pooler(smiles_emb).to(device)
+        p_embedding = self.p_pooler(protein_emb).to(device)
+        smiles_attn = smiles_attn.to(device)
+        protein_attn = protein_attn.to(device)
         
         
         zeros_pad = torch.zeros((batch_size, 1, self.config.hidden_size)).to(device)
@@ -161,6 +163,7 @@ class MM_TN(nn.Module):
         
         concat_seq = torch.cat((ones_pad, s_embedding, zeros_pad, p_embedding), dim=1) # <cls> SMILES <sep> Protein
         attention_mask = torch.cat((ones_mask, smiles_attn, zeros_mask, protein_attn), dim=1)
+        self.main_bert = self.main_bert.to(device)
 
         if get_repr:
             output, final_repr = self.main_bert(concat_seq, attention_mask, get_repr)

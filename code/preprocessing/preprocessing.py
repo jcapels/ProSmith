@@ -32,6 +32,12 @@ def get_arguments():
         type=int,
         help="Number of SMILES strings in one dictionary.",
     )
+    parser.add_argument(
+        "--device",
+        default="cuda:0",
+        type=str,
+        help="Device",
+    )
     return parser.parse_args()
 args = get_arguments()
 
@@ -55,6 +61,7 @@ except:
 	pass
 
 print("Calculating protein embeddings:")
-calculate_protein_embeddings(all_sequences, args.outpath, args.prot_emb_no)
+calculate_protein_embeddings(all_sequences, args.outpath, args.prot_emb_no, device=args.device)
+
 print("Calculating SMILES embeddings:")
 calculate_smiles_embeddings(all_smiles, args.outpath, args.smiles_emb_no)

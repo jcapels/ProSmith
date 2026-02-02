@@ -13,21 +13,21 @@ smiles_bert = AutoModelForMaskedLM.from_pretrained(SMILES_BERT)
 
 
 def calculate_smiles_embeddings(all_smiles, outpath, no_of_embeddings = 1000):
-	create_empty_path(join(outpath, "SMILES"))
+    create_empty_path(join(outpath, "SMILES"))
 
-	n = len(all_smiles)
-	parts = int(np.ceil(n/no_of_embeddings))
+    n = len(all_smiles)
+    parts = int(np.ceil(n/no_of_embeddings))
 
-	for part in range(parts):
-	    smiles_reprs = {}
-	    smiles_list = all_smiles[part*no_of_embeddings: (part+1)*no_of_embeddings]
-
-	    for k, smiles in enumerate(smiles_list):
-	        smiles_rep = get_last_layer_repr(smiles)
+    for part in range(parts):
+        smiles_reprs = {}
+        smiles_list = all_smiles[part*no_of_embeddings: (part+1)*no_of_embeddings]
+	
+        for k, smiles in enumerate(smiles_list):
+            smiles_rep = get_last_layer_repr(smiles)
 	        #smiles_rep.requires_grad = False
-	        smiles_reprs[smiles] = smiles_rep
+            smiles_reprs[smiles] = smiles_rep
 	    
-	    with open(join(outpath, "SMILES", "SMILES_repr_" + str(part)+".pkl"), 'wb') as handle:
+        with open(join(outpath, "SMILES", "SMILES_repr_" + str(part)+".pkl"), 'wb') as handle:
 	        pickle.dump(smiles_reprs, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 

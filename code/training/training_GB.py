@@ -178,10 +178,10 @@ space_gradient_boosting = {"learning_rate": hp.uniform("learning_rate", 0.01, 0.
 def trainer(gpu, args, device):
     logging.info(args)
 
-    if is_cuda(device):
-        setup(gpu, args.world_size, str(args.port))
-        torch.manual_seed(0)
-        torch.cuda.set_device(gpu)
+    # if is_cuda(device):
+    #     setup(gpu, args.world_size, str(args.port))
+    #     torch.manual_seed(0)
+    #     torch.cuda.set_device(gpu)
     
 
     config = MM_TNConfig.from_dict({"s_hidden_size":600,
@@ -238,7 +238,7 @@ def trainer(gpu, args, device):
     
     if is_cuda(device):
         model = model.to(gpu)
-        model = DDP(model, device_ids=[gpu])
+        # model = DDP(model, device_ids=[gpu])
 
     if os.path.exists(args.pretrained_model) and args.pretrained_model != "":
         logging.info(f"Loading model")
@@ -308,39 +308,6 @@ def trainer(gpu, args, device):
         del param["weight"]
         return(param, num_round)
 
-    def set_param_values_all_cls(param):
-        num_round = int(param["num_rounds"])
-        
-        param["tree_method"] = "gpu_hist"
-        param["sampling_method"] = "gradient_based"
-        if not args.binary_task:
-            param['objective'] = 'reg:squarederror'
-            weights = None
-        else:
-            param['objective'] = 'binary:logistic'
-            weights = np.array([param["weight"] if y == 0 else 1.0 for y in dtrain_all_cls.get_label()])
-            dtrain_all_cls.set_weight(weights)
-        del param["num_rounds"]
-        del param["weight"]
-        return(param, num_round)
-
-    def set_param_values_cls(param):
-        num_round = int(param["num_rounds"])
-        
-        param["tree_method"] = "gpu_hist"
-        param["sampling_method"] = "gradient_based"
-        if not args.binary_task:
-            param['objective'] = 'reg:squarederror'
-            weights = None
-        else:
-            param['objective'] = 'binary:logistic'
-            weights = np.array([param["weight"] if y == 0 else 1.0 for y in dtrain_cls.get_label()])
-            dtrain_cls.set_weight(weights)
-        del param["num_rounds"]
-        del param["weight"]
-        return(param, num_round)
-        
-
     def set_param_values_V2(param, dtrain):
         num_round = int(param["num_rounds"])
         param["max_depth"] = int(depth_array[param["max_depth"]])
@@ -401,113 +368,118 @@ def trainer(gpu, args, device):
     logging.info("Test set:")
     y_test_pred_all = get_predictions(param = trials.argmin, dM_train = dtrain_val, dM_val = dtest)
     get_performance_metrics(pred = y_test_pred_all, true = test_labels)
-    
+
+    os.makedirs(args.save_pred_path, exist_ok=True)
+
+    with open(join(args.save_pred_path, "best.pkl"), "wb") as f:
+        pickle.dump(best, f)
     
     ############# ESM1b+ChemBERTa +cls
-    train_X_all_cls = np.concatenate([np.concatenate([train_esm1b, train_smiles], axis = 1), train_cls], axis=1)
-    test_X_all_cls = np.concatenate([np.concatenate([test_esm1b, test_smiles], axis = 1), test_cls], axis=1)
-    val_X_all_cls = np.concatenate([np.concatenate([val_esm1b, val_smiles], axis = 1), val_cls], axis=1)
+    # train_X_all_cls = np.concatenate([np.concatenate([train_esm1b, train_smiles], axis = 1), train_cls], axis=1)
+    # test_X_all_cls = np.concatenate([np.concatenate([test_esm1b, test_smiles], axis = 1), test_cls], axis=1)
+    # val_X_all_cls = np.concatenate([np.concatenate([val_esm1b, val_smiles], axis = 1), val_cls], axis=1)
 
-    dtrain_all_cls = xgb.DMatrix(np.array(train_X_all_cls), label = np.array(train_labels).astype(float))
-    dtest_all_cls = xgb.DMatrix(np.array(test_X_all_cls), label = np.array(test_labels).astype(float))
-    dvalid_all_cls = xgb.DMatrix(np.array(val_X_all_cls), label = np.array(val_labels).astype(float))
-    dtrain_val_all_cls = xgb.DMatrix(np.concatenate([np.array(train_X_all_cls), np.array(val_X_all_cls)], axis = 0),
-                                label = np.concatenate([np.array(train_labels).astype(float),np.array(val_labels).astype(float)], axis = 0))
+    # dtrain_all_cls = xgb.DMatrix(np.array(train_X_all_cls), label = np.array(train_labels).astype(float))
+    # dtest_all_cls = xgb.DMatrix(np.array(test_X_all_cls), label = np.array(test_labels).astype(float))
+    # dvalid_all_cls = xgb.DMatrix(np.array(val_X_all_cls), label = np.array(val_labels).astype(float))
+    # dtrain_val_all_cls = xgb.DMatrix(np.concatenate([np.array(train_X_all_cls), np.array(val_X_all_cls)], axis = 0),
+    #                             label = np.concatenate([np.array(train_labels).astype(float),np.array(val_labels).astype(float)], axis = 0))
     
     
-    def train_xgboost_model_all_cls(param):
-        param, num_round = set_param_values_all_cls(param)
-        #Training:
-        bst = xgb.train(param,  dtrain_all_cls, num_round)
-        return(get_performance(pred = bst.predict(dvalid_all_cls), true =val_labels))
+    # def train_xgboost_model_all_cls(param):
+    #     param, num_round = set_param_values_all_cls(param)
+    #     #Training:
+    #     bst = xgb.train(param,  dtrain_all_cls, num_round)
+    #     return(get_performance(pred = bst.predict(dvalid_all_cls), true =val_labels))
 
 
-    trials = Trials()
-    best = fmin(fn = train_xgboost_model_all, space = space_gradient_boosting,
-                algo = rand.suggest, max_evals = args.num_iter, trials = trials)
+    # trials = Trials()
+    # best = fmin(fn = train_xgboost_model_all, space = space_gradient_boosting,
+    #             algo = rand.suggest, max_evals = args.num_iter, trials = trials)
+
+    #export to pickle
+
+    # #predictions for validation and test set on test set
+    # logging.info("ESM1b+ChemBERTa2+cls-token")
+    # logging.info("Validation set:")
+    # y_val_pred_all_cls = get_predictions(param = trials.argmin, dM_train = dtrain_all_cls, dM_val = dvalid_all_cls)
+    # get_performance_metrics(pred = y_val_pred_all_cls, true = val_labels)
+    # logging.info("Test set:")
+    # y_test_pred_all_cls = get_predictions(param  = trials.argmin, dM_train = dtrain_val_all_cls, dM_val = dtest_all_cls)
+    # get_performance_metrics(pred = y_test_pred_all_cls, true = test_labels)
 
 
-    #predictions for validation and test set on test set
-    logging.info("ESM1b+ChemBERTa2+cls-token")
-    logging.info("Validation set:")
-    y_val_pred_all_cls = get_predictions(param = trials.argmin, dM_train = dtrain_all_cls, dM_val = dvalid_all_cls)
-    get_performance_metrics(pred = y_val_pred_all_cls, true = val_labels)
-    logging.info("Test set:")
-    y_test_pred_all_cls = get_predictions(param  = trials.argmin, dM_train = dtrain_val_all_cls, dM_val = dtest_all_cls)
-    get_performance_metrics(pred = y_test_pred_all_cls, true = test_labels)
 
-
-
-    ############# cls token
-    dtrain_cls = xgb.DMatrix(np.array(train_cls), label = np.array(train_labels).astype(float))
-    dvalid_cls = xgb.DMatrix(np.array(val_cls), label = np.array(val_labels).astype(float))
-    dtest_cls = xgb.DMatrix(np.array(test_cls), label = np.array(test_labels).astype(float))
-    dtrain_val_cls = xgb.DMatrix(np.concatenate([np.array(train_cls), np.array(val_cls)], axis = 0),
-                                label = np.concatenate([np.array(train_labels).astype(float),np.array(val_labels).astype(float)], axis = 0))
+    # ############# cls token
+    # dtrain_cls = xgb.DMatrix(np.array(train_cls), label = np.array(train_labels).astype(float))
+    # dvalid_cls = xgb.DMatrix(np.array(val_cls), label = np.array(val_labels).astype(float))
+    # dtest_cls = xgb.DMatrix(np.array(test_cls), label = np.array(test_labels).astype(float))
+    # dtrain_val_cls = xgb.DMatrix(np.concatenate([np.array(train_cls), np.array(val_cls)], axis = 0),
+    #                             label = np.concatenate([np.array(train_labels).astype(float),np.array(val_labels).astype(float)], axis = 0))
 
     
-    def train_xgboost_model_cls(param):
-        param, num_round = set_param_values_cls(param)
-        #Training:
-        bst = xgb.train(param,  dtrain_cls, num_round)
-        return(get_performance(pred = bst.predict(dvalid_cls), true =val_labels))
+    # def train_xgboost_model_cls(param):
+    #     param, num_round = set_param_values_cls(param)
+    #     #Training:
+    #     bst = xgb.train(param,  dtrain_cls, num_round)
+    #     return(get_performance(pred = bst.predict(dvalid_cls), true =val_labels))
 
 
-    trials = Trials()
-    best = fmin(fn = train_xgboost_model_cls, space = space_gradient_boosting,
-                algo = rand.suggest, max_evals = args.num_iter, trials = trials)
+    # trials = Trials()
+    # best = fmin(fn = train_xgboost_model_cls, space = space_gradient_boosting,
+    #             algo = rand.suggest, max_evals = args.num_iter, trials = trials)
                 
                 
-    #predictions for validation and test set on test set:
-    logging.info("cls-token")
-    logging.info("Validation set:")
-    y_val_pred_cls = get_predictions(param = trials.argmin, dM_train = dtrain_cls, dM_val = dvalid_cls)
-    get_performance_metrics(pred = y_val_pred_cls, true = val_labels)
-    logging.info("Test set:")
-    y_test_pred_cls = get_predictions(param = trials.argmin, dM_train = dtrain_val_cls, dM_val = dtest_cls)
-    get_performance_metrics(pred = y_test_pred_cls, true = test_labels)
+    # #predictions for validation and test set on test set:
+    # logging.info("cls-token")
+    # logging.info("Validation set:")
+    # y_val_pred_cls = get_predictions(param = trials.argmin, dM_train = dtrain_cls, dM_val = dvalid_cls)
+    # get_performance_metrics(pred = y_val_pred_cls, true = val_labels)
+    # logging.info("Test set:")
+    # y_test_pred_cls = get_predictions(param = trials.argmin, dM_train = dtrain_val_cls, dM_val = dtest_cls)
+    # get_performance_metrics(pred = y_test_pred_cls, true = test_labels)
 
 
 
-    #############
-    best_mcc, best_mse = 0, 1000
-    best_i, best_j, best_k = 0,0,0
-    for i in [k/100 for k in range(0,100)]:
-        for j in [k/100 for k in range(0,100)]:
-            if i+j <=1:
-                k = (1-i-j)
-                y_val_pred = i*y_val_pred_all_cls + j*y_val_pred_all  + k*y_val_pred_cls
-                if args.binary_task:
-                    mcc = matthews_corrcoef(val_labels, np.round(y_val_pred))
-                    if mcc > best_mcc:
-                        best_mcc = mcc
-                        best_i, best_j, best_k = i, j, k
-                else:
-                    mse = mean_squared_error(val_labels, y_val_pred)
-                    if mse < best_mse:
-                        best_mse = mse
-                        best_i, best_j, best_k = i, j, k
+    # #############
+    # best_mcc, best_mse = 0, 1000
+    # best_i, best_j, best_k = 0,0,0
+    # for i in [k/100 for k in range(0,100)]:
+    #     for j in [k/100 for k in range(0,100)]:
+    #         if i+j <=1:
+    #             k = (1-i-j)
+    #             y_val_pred = i*y_val_pred_all_cls + j*y_val_pred_all  + k*y_val_pred_cls
+    #             if args.binary_task:
+    #                 mcc = matthews_corrcoef(val_labels, np.round(y_val_pred))
+    #                 if mcc > best_mcc:
+    #                     best_mcc = mcc
+    #                     best_i, best_j, best_k = i, j, k
+    #             else:
+    #                 mse = mean_squared_error(val_labels, y_val_pred)
+    #                 if mse < best_mse:
+    #                     best_mse = mse
+    #                     best_i, best_j, best_k = i, j, k
         
 
 
-    y_test_pred = best_i*y_test_pred_all_cls + best_j*y_test_pred_all + best_k*y_test_pred_cls
-    logging.info("Three models combined:")
-    logging.info("ESM1b+ChemBERTa2+cls: %s, ESM1b+ChemBERTa2: %s, cls-token: %s" %(best_i, best_j, best_k))
-    get_performance_metrics(pred = y_test_pred, true = test_labels)
+    # y_test_pred = best_i*y_test_pred_all_cls + best_j*y_test_pred_all + best_k*y_test_pred_cls
+    # logging.info("Three models combined:")
+    # logging.info("ESM1b+ChemBERTa2+cls: %s, ESM1b+ChemBERTa2: %s, cls-token: %s" %(best_i, best_j, best_k))
+    # get_performance_metrics(pred = y_test_pred, true = test_labels)
 
     
 
     ###Save model predictions:
-    if args.save_pred_path != "":
-        try:
-            os.mkdir(args.save_pred_path)
-        except:
-            pass 
-        np.save(join(args.save_pred_path, "y_test_pred.npy"), y_test_pred)
-        np.save(join(args.save_pred_path, "test_indices.npy"), np.array(test_indices))
+    # if args.save_pred_path != "":
+    #     try:
+    #         os.mkdir(args.save_pred_path)
+    #     except:
+    #         pass 
+    #     np.save(join(args.save_pred_path, "y_test_pred.npy"), y_test_pred)
+    #     np.save(join(args.save_pred_path, "test_indices.npy"), np.array(test_indices))
 
-    if args.world_size != -1:
-        cleanup()
+    # if args.world_size != -1:
+    #     cleanup()
 
 
 
@@ -518,7 +490,7 @@ if __name__ == '__main__':
     if torch.cuda.is_available():
         device = torch.device('cuda')
         device_ids = list(range(torch.cuda.device_count()))
-        gpus = len(device_ids)
+        gpus = 1
         args.world_size = gpus
         
     else:
@@ -528,9 +500,9 @@ if __name__ == '__main__':
         
     
     try:
-        if torch.cuda.is_available():
-            mp.spawn(trainer, nprocs=args.world_size, args=(args, device))
-        else:
-            trainer(0, args, device)
+        # if torch.cuda.is_available():
+        #     mp.spawn(trainer, nprocs=args.world_size, args=(args, device))
+        # else:
+        trainer(0, args, device)
     except Exception as e:
         print(e)

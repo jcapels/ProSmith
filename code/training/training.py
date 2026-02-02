@@ -115,6 +115,12 @@ def get_arguments():
         type=str,
         help='Will be added to the file name of the log file'
     )
+    parser.add_argument(
+        "--device",
+        default="cuda:0",
+        type=str,
+        help="Device",
+    )
     return parser.parse_args()
 
 args = get_arguments()
@@ -140,11 +146,12 @@ def train(args, model, trainloader, optimizer, criterion, device, gpu, epoch):
     train_loss = 0.
     
     logging.info(f"Training for epoch {epoch+1}")
+    criterion = criterion.to(device)
     
     for step, batch in enumerate(trainloader):
         # logging.info(f"Batch: {step}, Time ={np.round(time.time()-start_time)}")
         if is_cuda(device):
-                batch = [r.cuda(gpu) for r in batch]
+            batch = [r.to(device) for r in batch]
         smiles_emb, smiles_attn, protein_emb, protein_attn, labels, _ = batch
         
         # zero the gradients
@@ -157,6 +164,7 @@ def train(args, model, trainloader, optimizer, criterion, device, gpu, epoch):
             protein_attn=protein_attn,
             device=device, gpu=gpu)
         
+        labels = labels.to(device)
         loss = criterion(outputs, labels.float())
         
         # backward pass and optimization
@@ -183,7 +191,7 @@ def evaluate(args, model, valloader, criterion, device, gpu):
         for step, batch in enumerate(valloader):
             # move batch to device
             if is_cuda(device):
-                batch = [r.cuda(gpu) for r in batch]
+                batch = [r.to(device) for r in batch]
             smiles_emb, smiles_attn, protein_emb, protein_attn, labels, _ = batch
             # forward pass
             outputs = model(smiles_emb=smiles_emb, 
@@ -193,6 +201,7 @@ def evaluate(args, model, valloader, criterion, device, gpu):
                             device=device,
                             gpu=gpu)
             
+            labels = labels.to(device)
             loss = criterion(outputs, labels.float())
             val_loss += loss
             preds = outputs
@@ -229,10 +238,10 @@ def evaluate(args, model, valloader, criterion, device, gpu):
 def trainer(gpu, args, device):
     logging.info(args)
 
-    if is_cuda(device):
-        setup(gpu, args.world_size, str(args.port))
-        torch.manual_seed(0)
-        torch.cuda.set_device(gpu)
+    # if is_cuda(device):
+    #     setup(gpu, args.world_size, str(args.port))
+    #     torch.manual_seed(0)
+    #     torch.cuda.set_device(gpu)
     
 
     config = MM_TNConfig.from_dict({"s_hidden_size":600,
@@ -248,8 +257,8 @@ def trainer(gpu, args, device):
     model = MM_TN(config)
     
     if is_cuda(device):
-        model = model.to(gpu)
-        model = DDP(model, device_ids=[gpu])
+        model = model.to(device)
+        # model = DDP(model, device_ids=[gpu])
 
     if os.path.exists(args.pretrained_model) and args.pretrained_model != "":
         logging.info(f"Loading model")
@@ -307,8 +316,8 @@ def trainer(gpu, args, device):
             extraction_mode = False)
 
 
-        trainsampler = DistributedSampler(train_dataset, shuffle = False, num_replicas = args.world_size, rank = gpu, drop_last = True)
-        valsampler = DistributedSampler(val_dataset, shuffle = False, num_replicas = args.world_size, rank = gpu, drop_last = True)
+        trainsampler = DistributedSampler(train_dataset, shuffle = False, num_replicas = args.world_size, rank = 0, drop_last = True)
+        valsampler = DistributedSampler(val_dataset, shuffle = False, num_replicas = args.world_size, rank = 0, drop_last = True)
 
 
         logging.info(f"Loading dataloader")
@@ -348,9 +357,9 @@ if __name__ == '__main__':
     
     # Check if multiple GPUs are available
     if torch.cuda.is_available():
-        device = torch.device('cuda')
+        device = torch.device(args.device)
         device_ids = list(range(torch.cuda.device_count()))
-        gpus = len(device_ids)
+        gpus = 1
         args.world_size = gpus
         
     else:
@@ -360,10 +369,10 @@ if __name__ == '__main__':
     if not os.path.exists(args.save_model_path):
         os.makedirs(args.save_model_path)
   
-    try:
-        if torch.cuda.is_available():
-            mp.spawn(trainer, nprocs=args.world_size, args=(args, device))
-        else:
-            trainer(0, args, device)
-    except Exception as e:
-        print(e)
+    # try:
+        # if torch.cuda.is_available():
+        #     mp.spawn(trainer, nprocs=args.world_size, args=(args, device))
+        # else:
+    trainer(2, args, device)
+    # except Exception as e:
+    #     print(e)

@@ -9,7 +9,7 @@ from util_embeddings import create_empty_path
 from Bio import SeqIO
 
 
-def calculate_protein_embeddings(all_sequences, outpath, prot_emb_no = 1000):
+def calculate_protein_embeddings(all_sequences, outpath, prot_emb_no = 1000, device="cuda:0"):
     create_empty_path(join(outpath, "Protein"))
     fasta_file = join(outpath, "all_sequences.fasta")
     create_fasta_file(all_sequences, fasta_file)
@@ -17,7 +17,7 @@ def calculate_protein_embeddings(all_sequences, outpath, prot_emb_no = 1000):
     model, alphabet = pretrained.load_model_and_alphabet("esm1b_t33_650M_UR50S")
     model.eval()
     if torch.cuda.is_available():
-        model = model.cuda()
+        model = model.to(device=device)
         print("Transferred model to GPU")
 
     dataset = FastaBatchedDataset.from_file(fasta_file)
@@ -34,7 +34,7 @@ def calculate_protein_embeddings(all_sequences, outpath, prot_emb_no = 1000):
                 f"Processing {batch_idx + 1} of {len(batches)} batches ({toks.size(0)} sequences)"
             )
             if torch.cuda.is_available():
-                toks = toks.to(device="cuda", non_blocking=True)
+                toks = toks.to(device=device, non_blocking=True)
 
             # The model is trained on truncated sequences and passing longer ones in at
             # infernce will cause an error. See https://github.com/facebookresearch/esm/issues/21
