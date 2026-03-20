@@ -5,7 +5,7 @@ from os.path import join
 import shutil
 
 from esm import Alphabet, FastaBatchedDataset, ProteinBertModel, pretrained
-from util_embeddings import create_empty_path
+from .util_embeddings import create_empty_path
 from Bio import SeqIO
 
 

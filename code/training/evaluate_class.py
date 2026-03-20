@@ -261,46 +261,6 @@ def evaluate(gpu, args, device):
 
 
         logging.info(f"Loading dataset to {device}:{gpu}")
-        train_dataset = SMILESProteinDataset(
-            data_path=args.train_dir,
-            embed_dir = args.embed_path,
-            train=True,
-            device=device, 
-            gpu=gpu,
-            random_state = seed,
-            binary_task = args.binary_task,
-            extraction_mode = True) 
-
-        val_dataset = SMILESProteinDataset(
-            data_path=args.val_dir,
-            embed_dir = args.embed_path,
-            train=False, 
-            device=device, 
-            gpu=gpu,
-            random_state = seed,
-            binary_task = args.binary_task,
-            extraction_mode = True)
-            
-        test_dataset = SMILESProteinDataset(
-            data_path=args.test_dir,
-            embed_dir = args.embed_path,
-            train=False, 
-            device=device, 
-            gpu=gpu,
-            random_state = seed,
-            binary_task = args.binary_task,
-            extraction_mode = True)
-
-        trainsampler = DistributedSampler(train_dataset, shuffle = False, num_replicas = args.world_size, rank = gpu, drop_last = True)
-        valsampler = DistributedSampler(val_dataset, shuffle = False, num_replicas = args.world_size, rank = gpu, drop_last = True)
-        testsampler = DistributedSampler(test_dataset, shuffle = False, num_replicas = args.world_size, rank = gpu, drop_last = True)
-
-        logging.info(f"Loading dataloader")
-        trainloader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=1, sampler=trainsampler)
-        valloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=1, sampler=valsampler)
-        testloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=1, sampler=testsampler)
-
-
         logging.info(f"Loading model")
         model = MM_TN(config)
         
@@ -333,9 +293,75 @@ def evaluate(gpu, args, device):
             logging.info("Model path is invalid, cannot load pretrained Interbert model")
         
 
-        val_cls, val_esm1b, val_smiles, val_labels, _ = extract_repr(args, model, valloader, device)
-        test_cls, test_esm1b, test_smiles, test_labels, test_indices = extract_repr(args, model, testloader, device)
-        train_cls, train_esm1b, train_smiles, train_labels, _ = extract_repr(args, model, trainloader, device)
+        # Check if the file exists
+        if os.path.exists(join(args.save_pred_path, f"data_{args.class_name}.npz")):
+            # Load all variables from the .npz file
+            data = np.load(join(args.save_pred_path, f"data_{args.class_name}.npz"))
+
+            # Assign loaded variables
+            train_cls, train_esm1b, train_smiles, train_labels = (
+                data['train_cls'], data['train_esm1b'], data['train_smiles'], data['train_labels']
+            )
+            val_cls, val_esm1b, val_smiles, val_labels = (
+                data['val_cls'], data['val_esm1b'], data['val_smiles'], data['val_labels']
+            )
+            test_cls, test_esm1b, test_smiles, test_labels = (
+                data['test_cls'], data['test_esm1b'], data['test_smiles'], data['test_labels']
+            )
+        else:
+            train_dataset = SMILESProteinDataset(
+            data_path=args.train_dir,
+            embed_dir = args.embed_path,
+            train=True,
+            device=device, 
+            gpu=gpu,
+            random_state = seed,
+            binary_task = args.binary_task,
+            extraction_mode = True) 
+
+            val_dataset = SMILESProteinDataset(
+                data_path=args.val_dir,
+                embed_dir = args.embed_path,
+                train=False, 
+                device=device, 
+                gpu=gpu,
+                random_state = seed,
+                binary_task = args.binary_task,
+                extraction_mode = True)
+                
+            test_dataset = SMILESProteinDataset(
+                data_path=args.test_dir,
+                embed_dir = args.embed_path,
+                train=False, 
+                device=device, 
+                gpu=gpu,
+                random_state = seed,
+                binary_task = args.binary_task,
+                extraction_mode = True)
+
+            # Create samplers and dataloaders
+            trainsampler = DistributedSampler(train_dataset, shuffle=False, num_replicas=args.world_size, rank=gpu, drop_last=True)
+            valsampler = DistributedSampler(val_dataset, shuffle=False, num_replicas=args.world_size, rank=gpu, drop_last=True)
+            testsampler = DistributedSampler(test_dataset, shuffle=False, num_replicas=args.world_size, rank=gpu, drop_last=True)
+
+            logging.info(f"Loading dataloader")
+            trainloader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=1, sampler=trainsampler)
+            valloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=1, sampler=valsampler)
+            testloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=1, sampler=testsampler)
+
+            # Extract representations
+            val_cls, val_esm1b, val_smiles, val_labels, _ = extract_repr(args, model, valloader, device)
+            test_cls, test_esm1b, test_smiles, test_labels, test_indices = extract_repr(args, model, testloader, device)
+            train_cls, train_esm1b, train_smiles, train_labels, _ = extract_repr(args, model, trainloader, device)
+
+            # Save all variables to a .npz file
+            np.savez(
+                join(args.save_pred_path, f"data_{args.class_name}.npz"),
+                train_cls=train_cls, train_esm1b=train_esm1b, train_smiles=train_smiles, train_labels=train_labels,
+                val_cls=val_cls, val_esm1b=val_esm1b, val_smiles=val_smiles, val_labels=val_labels,
+                test_cls=test_cls, test_esm1b=test_esm1b, test_smiles=test_smiles, test_labels=test_labels
+            )
+
 
         logging.info(str(len(test_labels)))
         

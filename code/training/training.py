@@ -6,6 +6,11 @@ from torch.utils.data import Dataset, DataLoader
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+from hurry.filesize import size
+import datetime
+import os
+import time
+import tracemalloc
 
 from utils.modules import (
     MM_TN,
@@ -291,6 +296,9 @@ def trainer(gpu, args, device):
     logging.info(f"Start training")
     
     best_val_loss = float('inf')
+
+    tracemalloc.start()
+    start = time.time()
     
     for epoch in range(args.num_train_epochs):
 
@@ -347,6 +355,14 @@ def trainer(gpu, args, device):
             best_val_loss = val_loss
             if is_main_process():
                 torch.save(model.state_dict(), os.path.join(args.save_model_path, setting + '.pkl'))
+    
+
+    end = time.time()
+    tracemalloc.stop()
+
+    pd.DataFrame({
+        "time": [str(datetime.timedelta(seconds=end - start))], 
+        "memory": [size(int(tracemalloc.get_traced_memory()[1]))]}).to_csv(os.path.join(args.save_model_path, "efficiency_benchmark_training.csv"), index=False)
 
     if args.world_size != -1:
         cleanup()
@@ -369,10 +385,4 @@ if __name__ == '__main__':
     if not os.path.exists(args.save_model_path):
         os.makedirs(args.save_model_path)
   
-    # try:
-        # if torch.cuda.is_available():
-        #     mp.spawn(trainer, nprocs=args.world_size, args=(args, device))
-        # else:
     trainer(2, args, device)
-    # except Exception as e:
-    #     print(e)

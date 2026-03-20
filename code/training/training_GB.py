@@ -5,6 +5,7 @@ import random
 import argparse
 import time
 import logging
+import tracemalloc
 import numpy as np
 from time import gmtime, strftime
 import pandas as pd
@@ -13,6 +14,12 @@ import xgboost as xgb
 from hyperopt import fmin, tpe, hp, Trials, rand
 from sklearn.metrics import roc_auc_score, matthews_corrcoef, r2_score, mean_squared_error, matthews_corrcoef
 from lifelines.utils import concordance_index
+
+from hurry.filesize import size
+import datetime
+import os
+import time
+import tracemalloc
 
 
 import torch
@@ -119,6 +126,7 @@ logger.addHandler(fhandler)
 
 
 def extract_repr(args, model, dataloader, device):
+
     print("device: %s" % device)
     # evaluate the model on validation set
     model.eval()
@@ -160,6 +168,13 @@ def extract_repr(args, model, dataloader, device):
                 esm1b_repr_all = np.concatenate((esm1b_repr_all, esm1b.reshape(1,-1)), axis=0)
                 labels_all = torch.cat((labels_all, labels[0]), dim=0)
                 orginal_indices = orginal_indices + list(indices.cpu().detach().numpy())
+
+    end = time.time()
+    tracemalloc.stop()
+
+    pd.DataFrame({
+        "time": [str(datetime.timedelta(seconds=end - start))], 
+        "memory": [size(int(tracemalloc.get_traced_memory()[1]))]}).to_csv(os.path.join(args.save_model_path, "efficiency_benchmark_training.csv"), index=False)
     return cls_repr_all, esm1b_repr_all, smiles_repr_all, labels_all.cpu().detach().numpy(), orginal_indices
 
 
@@ -176,6 +191,10 @@ space_gradient_boosting = {"learning_rate": hp.uniform("learning_rate", 0.01, 0.
 
 
 def trainer(gpu, args, device):
+
+    tracemalloc.start()
+    start = time.time()
+
     logging.info(args)
 
     # if is_cuda(device):
@@ -373,6 +392,13 @@ def trainer(gpu, args, device):
 
     with open(join(args.save_pred_path, "best.pkl"), "wb") as f:
         pickle.dump(best, f)
+
+    end = time.time()
+    tracemalloc.stop()
+
+    pd.DataFrame({
+        "time": [str(datetime.timedelta(seconds=end - start))], 
+        "memory": [size(int(tracemalloc.get_traced_memory()[1]))]}).to_csv(os.path.join(args.save_model_path, "efficiency_benchmark_training.csv"), index=False)
     
     ############# ESM1b+ChemBERTa +cls
     # train_X_all_cls = np.concatenate([np.concatenate([train_esm1b, train_smiles], axis = 1), train_cls], axis=1)
@@ -393,7 +419,12 @@ def trainer(gpu, args, device):
     #     return(get_performance(pred = bst.predict(dvalid_all_cls), true =val_labels))
 
 
-    
+    end = time.time()
+    tracemalloc.stop()
+
+    pd.DataFrame({
+        "time": [str(datetime.timedelta(seconds=end - start))], 
+        "memory": [size(int(tracemalloc.get_traced_memory()[1]))]}).to_csv(os.path.join(args.save_model_path, "efficiency_benchmark_training.csv"), index=False)
 
     #export to pickle
 

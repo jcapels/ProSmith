@@ -38,6 +38,13 @@ def get_arguments():
         type=str,
         help="Device",
     )
+    parser.add_argument(
+        "--efficiency_benchmark_csv",
+        type=str,
+        required=False,
+		default="efficiency_benchmark_embeddings.csv",
+        help="",
+    )
     return parser.parse_args()
 args = get_arguments()
 
@@ -60,8 +67,26 @@ try:
 except:
 	pass
 
+
+from hurry.filesize import size
+import datetime
+import os
+import time
+import tracemalloc
+
+tracemalloc.start()
+start = time.time()
+
 print("Calculating protein embeddings:")
 calculate_protein_embeddings(all_sequences, args.outpath, args.prot_emb_no, device=args.device)
 
 print("Calculating SMILES embeddings:")
 calculate_smiles_embeddings(all_smiles, args.outpath, args.smiles_emb_no)
+
+end = time.time()
+tracemalloc.stop()
+
+pd.DataFrame({
+    "time": [str(datetime.timedelta(seconds=end - start))], 
+    "memory": [size(int(tracemalloc.get_traced_memory()[1]))]}).to_csv(os.path.join(args.outpath, 
+																					args.efficiency_benchmark_csv), index=False)

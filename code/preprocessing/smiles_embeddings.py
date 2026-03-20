@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, AutoModelForMaskedLM
 import pickle
 from os.path import join
 import numpy as np
-from util_embeddings import create_empty_path
+from .util_embeddings import create_empty_path
 
 
 

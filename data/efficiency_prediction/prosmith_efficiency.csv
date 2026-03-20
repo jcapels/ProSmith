@@ -1,0 +1,11 @@
+pipeline,unique_enzymes,unique_substrates,num_pairs,time,memory
+prosmith,13,18,153,0:00:49.047929,0B
+prosmith,191,89,357,0:00:53.429013,0B
+prosmith,3139,498,4170,0:12:46.496832,0B
+prosmith,7000,1522,44148,0:30:31.406577,0B
+prosmith,10387,1728,73230,0:45:04.278333,0B
+
+
+
+
+
